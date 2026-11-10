@@ -1,0 +1,94 @@
+========================================================================
+1. CLASSIFIER EVALUATION (suggest_category / Naive Bayes)
+========================================================================
+
+--- EXPENSE classifier ---
+Trained on 86 examples (seed + train split), tested on 9 held-out examples
+Accuracy: 0.889
+
+Precision / Recall / F1 per category:
+               precision    recall  f1-score   support
+
+    Education       0.50      1.00      0.67         1
+Entertainment       1.00      1.00      1.00         1
+Food & Drinks       1.00      1.00      1.00         1
+       Health       1.00      1.00      1.00         1
+        Other       1.00      1.00      1.00         1
+         Rent       1.00      1.00      1.00         1
+      Savings       1.00      1.00      1.00         1
+    Transport       0.00      0.00      0.00         1
+    Utilities       1.00      1.00      1.00         1
+
+     accuracy                           0.89         9
+    macro avg       0.83      0.89      0.85         9
+ weighted avg       0.83      0.89      0.85         9
+
+Confusion matrix (rows = true category, columns = predicted):
+                 Educatio  Entertai  Food & D    Health     Other      Rent   Savings  Transpor  Utilitie
+Education               1         0         0         0         0         0         0         0         0
+Entertainment           0         1         0         0         0         0         0         0         0
+Food & Drinks           0         0         1         0         0         0         0         0         0
+Health                  0         0         0         1         0         0         0         0         0
+Other                   0         0         0         0         1         0         0         0         0
+Rent                    0         0         0         0         0         1         0         0         0
+Savings                 0         0         0         0         0         0         1         0         0
+Transport               1         0         0         0         0         0         0         0         0
+Utilities               0         0         0         0         0         0         0         0         1
+
+Misclassified examples:
+  'fuel for car'  true=Transport  predicted=Education
+
+--- INCOME classifier ---
+Trained on 44 examples (seed + train split), tested on 5 held-out examples
+Accuracy: 0.800
+
+Precision / Recall / F1 per category:
+                precision    recall  f1-score   support
+
+Family Support       1.00      1.00      1.00         1
+     Freelance       0.50      1.00      0.67         1
+  Other Income       1.00      1.00      1.00         1
+        Salary       0.00      0.00      0.00         1
+   Scholarship       1.00      1.00      1.00         1
+
+      accuracy                           0.80         5
+     macro avg       0.70      0.80      0.73         5
+  weighted avg       0.70      0.80      0.73         5
+
+Confusion matrix (rows = true category, columns = predicted):
+                  Family S  Freelanc  Other In    Salary  Scholars
+Family Support           1         0         0         0         0
+Freelance                0         1         0         0         0
+Other Income             0         0         1         0         0
+Salary                   0         1         0         0         0
+Scholarship              0         0         0         0         1
+
+Misclassified examples:
+  'monthly pay from work'  true=Salary  predicted=Freelance
+
+========================================================================
+2. ANOMALY-DETECTION EVALUATION (get_insights / statistical baselining)
+========================================================================
+
+11/11 scenarios behaved as expected
+
+Scenario                        History            Current   Expect   Actual   OK?
+----------------------------------------------------------------------------------
+baseline (no change)            [150, 160, 155]        155    False    False     ✓
+small increase (+10%)           [150, 160, 155]        172    False    False     ✓
+just under threshold (+24%)     [150, 160, 155]        192    False    False     ✓
+just over threshold (+25%)      [150, 160, 155]        194     True     True     ✓
+large increase (+50%)           [150, 160, 155]        233     True     True     ✓
+extreme increase (+100%)        [150, 160, 155]        310     True     True     ✓
+small decrease (-10%)           [150, 160, 155]        140    False    False     ✓
+large decrease (-30%)           [150, 160, 155]        109     True     True     ✓
+only 2 months history           [150, 160]             300    False    False     ✓
+only 1 month history            [150]                  300    False    False     ✓
+zero history (new category)     []                     200    False    False     ✓
+
+========================================================================
+Summary for dissertation
+========================================================================
+- Report the accuracy/precision/recall/F1 and confusion matrix figures above per transaction type (expense/income) as the classifier evaluation.
+- Report the anomaly scenario table above as evidence the 25% threshold and 3-month minimum-history rule behave correctly at their boundaries.
+- If any classifier categories show weak recall/precision, discuss likely causes (e.g. overlapping vocabulary between categories, small seed set) in the critical analysis chapter.

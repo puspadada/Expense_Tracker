@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+  <div>
+    <h1 id="greeting">Good morning</h1>
+    <p>Here's your financial overview for <span id="month-display"></span></p>
+  </div>
+  <div class="month-nav">
+    <button onclick="changeMonth(-1)">‹</button>
+    <div class="month-label" id="month-label"></div>
+    <button onclick="changeMonth(1)">›</button>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stat-grid">
+  <div class="stat-card income">
+    <div class="stat-label">Total Income</div>
+    <div class="stat-val" id="s-income">0.00 kr.</div>
+    <div class="stat-sub" id="s-income-count">0 transactions</div>
+  </div>
+  <div class="stat-card expense">
+    <div class="stat-label">Total Expenses</div>
+    <div class="stat-val" id="s-expense">0.00 kr.</div>
+    <div class="stat-sub" id="s-expense-count">0 transactions</div>
+  </div>
+  <div class="stat-card balance">
+    <div class="stat-label">Net Balance (all time)</div>
+    <div class="stat-val" id="s-balance">0.00 kr.</div>
+    <div class="stat-sub">Total savings so far</div>
+  </div>
+</div>
+
+<!-- AI Insights -->
+<div class="card" id="insights-card" style="display:none;margin-bottom:1.5rem;">
+  <div class="card-title">Spending Insights</div>
+  <div id="insights-list"></div>
+</div>
+
+<!-- Charts row -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
+  <div class="card">
+    <div class="card-title">Spending by Category</div>
+    <canvas id="chart-pie" height="200"></canvas>
+    <div id="pie-empty" class="empty-state" style="display:none;padding:2rem 0;">
+      <div class="icon">📊</div><p>No expenses this month</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">6-Month Trend</div>
+    <canvas id="chart-bar" height="200"></canvas>
+  </div>
+</div>
+
+<!-- Quick add + recent -->
+<div style="display:grid;grid-template-columns:1fr 1.6fr;gap:1rem;">
+  <div class="card">
+    <div class="card-title">Quick Add</div>
+    <div class="type-toggle">
+      <button class="type-btn active-income" id="q-income-btn" onclick="setQType('income')">+ Income</button>
+      <button class="type-btn" id="q-expense-btn" onclick="setQType('expense')">− Expense</button>
+    </div>
+    <div class="field"><label>Amount (kr.)</label><input type="number" id="q-amount" placeholder="0.00" min="0.01" step="0.01"></div>
+    <div class="field"><label>Category</label>
+      <!-- Same accept/reject suggestion flow as the Transactions page: no
+           category is pre-selected, so the Naive Bayes suggestion is the
+           thing the student actually interacts with. -->
+      <div id="q-cat-hint" style="font-size:0.85rem;color:var(--muted);padding:0.5rem 0;">Type a note below to get an AI category suggestion, or <a href="#" onclick="showQCatSelect(event)">choose manually</a>.</div>
+      <div id="q-cat-suggest-box" style="display:none;padding:0.6rem 0.8rem;border:1.5px dashed var(--sage);border-radius:6px;background:rgba(125,160,125,0.08);">
+        <div style="font-size:0.85rem;">🤖 Naive Bayes suggests: <strong id="q-cat-suggest-name"></strong> <span id="q-cat-suggest-conf" style="color:var(--muted);font-weight:400;"></span></div>
+        <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+          <button type="button" class="btn btn-primary btn-sm" onclick="acceptQSuggestion()">✓ Accept</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="showQCatSelect(event)">Choose manually</button>
+        </div>
+      </div>
+      <div id="q-cat-confirmed-box" style="display:none;font-size:0.85rem;color:var(--ink);padding:0.5rem 0;">✓ <strong id="q-cat-confirmed-name"></strong> <span style="color:var(--muted);font-weight:400;">(AI-suggested, accepted)</span> · <a href="#" onclick="showQCatSelect(event)">change</a></div>
+      <select id="q-cat" style="display:none;"></select>
+    </div>
+    <div class="field"><label>Date</label><input type="date" id="q-date"></div>
+    <div class="field"><label>Note (optional)</label><input type="text" id="q-note" placeholder="e.g. Netto weekly shop" oninput="onQNoteInput()"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="quickAdd()">Add Entry</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Recent Transactions</div>
+    <div id="recent-list"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+let currentMonth = new Date().toISOString().slice(0,7);
+let qType = 'income';
+let cats = {};
+let pieChart, barChart;
+
+// greeting
+const hour = new Date().getHours();
+document.getElementById('greeting').textContent = hour<12?'Good morning, {{ username }} ☀️':hour<17?'Good afternoon, {{ username }} 🌤':' Good evening, {{ username }} 🌙';
+
+function initMonthNav() {
+  document.getElementById('month-label').textContent = monthName(currentMonth);
+  document.getElementById('month-display').textContent = monthName(currentMonth);
+}
+function changeMonth(d) {
+  const [y,m] = currentMonth.split('-').map(Number);
+  let newMonth = m + d;
+  let newYear = y;
+  if (newMonth > 12) { newMonth = 1; newYear++; }
+  if (newMonth < 1)  { newMonth = 12; newYear--; }
+  currentMonth = newYear + '-' + String(newMonth).padStart(2,'0');
+  initMonthNav(); loadAll();
+}
+
+async function loadCats() {
+  const r = await fetch('/api/categories'); cats = await r.json();
+  setCatOptions('income');
+}
+
+function setCatOptions(type) {
+  const sel = document.getElementById('q-cat'); sel.innerHTML='';
+  const placeholder = document.createElement('option');
+  placeholder.value=''; placeholder.textContent='— Select category —'; placeholder.disabled=true; placeholder.selected=true;
+  sel.appendChild(placeholder);
+  cats[type]?.forEach(c => { const o=document.createElement('option'); o.value=c; o.textContent=catIcon(c)+' '+c; sel.appendChild(o); });
+}
+
+// ─── Category field state machine (Quick Add) ──────────────────────────
+// Mirrors the Transactions-page pattern: hint → suggestion box → confirmed
+// box, with "choose manually" revealing the plain dropdown at any point.
+function resetQCatUI() {
+  document.getElementById('q-cat-hint').style.display = 'block';
+  document.getElementById('q-cat-suggest-box').style.display = 'none';
+  document.getElementById('q-cat-confirmed-box').style.display = 'none';
+  document.getElementById('q-cat').style.display = 'none';
+  document.getElementById('q-cat').value = '';
+}
+function showQCatSelect(e) {
+  if (e) e.preventDefault();
+  document.getElementById('q-cat-hint').style.display = 'none';
+  document.getElementById('q-cat-suggest-box').style.display = 'none';
+  document.getElementById('q-cat-confirmed-box').style.display = 'none';
+  document.getElementById('q-cat').style.display = 'block';
+}
+function acceptQSuggestion() {
+  document.getElementById('q-cat').value = qLastSuggestion;
+  document.getElementById('q-cat-hint').style.display = 'none';
+  document.getElementById('q-cat-suggest-box').style.display = 'none';
+  document.getElementById('q-cat').style.display = 'none';
+  document.getElementById('q-cat-confirmed-name').textContent = catIcon(qLastSuggestion)+' '+qLastSuggestion;
+  document.getElementById('q-cat-confirmed-box').style.display = 'block';
+}
+
+function setQType(t) {
+  qType = t;
+  document.getElementById('q-income-btn').className = 'type-btn' + (t==='income'?' active-income':'');
+  document.getElementById('q-expense-btn').className = 'type-btn' + (t==='expense'?' active-expense':'');
+  setCatOptions(t);
+  resetQCatUI();
+  if (document.getElementById('q-note').value.trim().length >= 2) fetchQSuggestion();
+}
+
+// ─── AI category suggestion (Quick Add) ────────────────────────────────
+// Same Naive Bayes suggestion used on the Transactions page, wired up
+// here too so Quick Add behaves consistently with the full Add form.
+let qDescTimer = null;
+let qLastSuggestion = null;
+function onQNoteInput() {
+  clearTimeout(qDescTimer);
+  qDescTimer = setTimeout(fetchQSuggestion, 400);
+}
+async function fetchQSuggestion() {
+  const description = document.getElementById('q-note').value.trim();
+  if (description.length < 2) { resetQCatUI(); return; }
+  try {
+    const r = await fetch('/api/suggest-category', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({type: qType, description})
+    });
+    const result = await r.json();
+    if (result && result.category) {
+      qLastSuggestion = result.category;
+      document.getElementById('q-cat-hint').style.display = 'none';
+      document.getElementById('q-cat-confirmed-box').style.display = 'none';
+      document.getElementById('q-cat').style.display = 'none';
+      document.getElementById('q-cat-suggest-name').textContent = catIcon(result.category)+' '+result.category;
+      document.getElementById('q-cat-suggest-conf').textContent = '('+Math.round(result.confidence*100)+'% confident)';
+      document.getElementById('q-cat-suggest-box').style.display = 'block';
+    } else {
+      resetQCatUI();
+    }
+  } catch (e) { resetQCatUI(); }
+}
+
+async function quickAdd() {
+  const amount = parseFloat(document.getElementById('q-amount').value);
+  const category = document.getElementById('q-cat').value;
+  const date = document.getElementById('q-date').value;
+  const description = document.getElementById('q-note').value;
+  if (!amount || amount<=0) { toast('Enter a valid amount','error'); return; }
+  if (!date) { toast('Pick a date','error'); return; }
+  if (!category) { toast('Accept the suggested category, or choose one manually','error'); return; }
+  await fetch('/api/transactions', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({type:qType, amount, category, date, description})});
+  document.getElementById('q-amount').value='';
+  document.getElementById('q-note').value='';
+  resetQCatUI();
+  toast('Transaction added!');
+  loadAll();
+}
+
+async function loadSummary() {
+  const r = await fetch('/api/summary?month='+currentMonth);
+  const d = await r.json();
+
+  document.getElementById('s-income').textContent = fmt(d.income);
+  document.getElementById('s-expense').textContent = fmt(d.expenses);
+  document.getElementById('s-balance').textContent = fmt(d.balance_all);
+
+  // Pie chart
+  if (d.expense_cats.length > 0) {
+    document.getElementById('pie-empty').style.display='none';
+    document.getElementById('chart-pie').style.display='';
+    const colors = ['#4a7c59','#e8c547','#c0392b','#3498db','#9b59b6','#e67e22','#1abc9c','#e91e63','#607d8b','#ff5722','#795548'];
+    const labels = d.expense_cats.map(x=>x.category);
+    const vals   = d.expense_cats.map(x=>x.total);
+    if (pieChart) pieChart.destroy();
+    pieChart = new Chart(document.getElementById('chart-pie'), {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data: vals, backgroundColor: colors, borderWidth: 2, borderColor: '#fffdf8' }] },
+      options: { responsive:true, plugins: { legend:{ position:'right', labels:{ font:{family:'DM Sans',size:11}, padding:12 } } }, cutout:'65%' }
+    });
+  } else {
+    document.getElementById('pie-empty').style.display='';
+    document.getElementById('chart-pie').style.display='none';
+    if (pieChart) pieChart.destroy();
+  }
+
+  // Bar chart (trend)
+  const months = [...new Set(d.trend.map(x=>x.month))].sort().slice(-6);
+  const incomeData = months.map(m => d.trend.find(x=>x.month===m&&x.type==='income')?.total || 0);
+  const expData    = months.map(m => d.trend.find(x=>x.month===m&&x.type==='expense')?.total || 0);
+  if (barChart) barChart.destroy();
+  barChart = new Chart(document.getElementById('chart-bar'), {
+    type: 'bar',
+    data: {
+      labels: months.map(m => { const [y,mo]=m.split('-'); return new Date(y,mo-1).toLocaleDateString('en-GB',{month:'short'}); }),
+      datasets: [
+        { label:'Income', data: incomeData, backgroundColor:'rgba(74,124,89,0.8)', borderRadius:4 },
+        { label:'Expenses', data: expData, backgroundColor:'rgba(192,57,43,0.7)', borderRadius:4 }
+      ]
+    },
+    options: { responsive:true, plugins:{ legend:{ labels:{font:{family:'DM Sans',size:11}} } },
+      scales: { x:{ grid:{display:false}, ticks:{font:{family:'DM Sans'}} }, y:{ beginAtZero:true, suggestedMax:100, ticks:{font:{family:'DM Sans'}, callback:v=>v+' kr.'} } }
+    }
+  });
+}
+
+async function loadRecent() {
+  const r = await fetch('/api/recent'); const rows = await r.json();
+  const el = document.getElementById('recent-list');
+  if (!rows.length) { el.innerHTML='<div class="empty-state"><div class="icon">📋</div><p>No transactions yet. Add your first one!</p></div>'; return; }
+  el.innerHTML = `<table class="tbl">
+    <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th></tr></thead>
+    <tbody>
+    ${rows.map(t=>`<tr>
+      <td style="color:var(--muted);font-size:0.82rem">${fmtDate(t.date)}</td>
+      <td>${catIcon(t.category)} <span style="font-size:0.88rem">${t.category}</span></td>
+      <td style="color:var(--muted);font-size:0.88rem">${t.description||'—'}</td>
+      <td><span class="badge badge-${t.type}">${t.type==='income'?'+':'-'}${fmt(t.amount)}</span></td>
+    </tr>`).join('')}
+    </tbody></table>`;
+}
+
+async function loadInsights() {
+  const r = await fetch('/api/insights?month=' + currentMonth);
+  const insights = await r.json();
+  const card = document.getElementById('insights-card');
+  const list = document.getElementById('insights-list');
+  if (!insights.length) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  list.innerHTML = insights.map(i => `
+    <div style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:1.1rem;">${i.type === 'high' ? '⚠️' : '✅'}</span>
+      <span style="font-size:0.9rem;">${i.message}</span>
+    </div>`).join('');
+}
+
+function loadAll() { loadSummary(); loadRecent(); loadInsights(); }
+
+// Init
+document.getElementById('q-date').value = new Date().toISOString().split('T')[0];
+initMonthNav(); loadCats(); loadAll();
+</script>
+{% endblock %}

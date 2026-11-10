@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Account{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Account</h1>
+  <p>Your login and control over the data this app holds about you</p>
+</div>
+
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-title">Your data</div>
+  <p style="color:var(--muted);font-size:0.9rem;margin-bottom:1rem;">
+    Download everything this app has stored about you — your transactions, budgets and
+    custom categories — as a single file. Nothing is shared with any third party; this
+    export is generated only for you, on request.
+  </p>
+  <button class="btn btn-secondary" onclick="exportData()">⬇ Export my data</button>
+</div>
+
+<div class="card" style="border-color:#f5c6c3;">
+  <div class="card-title" style="color:var(--error);">Delete account</div>
+  <p style="color:var(--muted);font-size:0.9rem;margin-bottom:1rem;">
+    This permanently deletes your account, along with all your transactions, budgets and
+    custom categories. This cannot be undone.
+  </p>
+  <button class="btn btn-danger" onclick="openDeleteAccount()">Delete my account</button>
+</div>
+
+<!-- Confirm account deletion -->
+<div class="modal-overlay" id="del-account-modal">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-title" style="color:var(--error);">Delete your account?</div>
+    <button class="modal-close" onclick="closeDeleteAccount()">×</button>
+    <p style="color:var(--muted);margin-bottom:1rem;font-size:0.9rem;">
+      All your transactions, budgets and categories will be permanently removed. This cannot be undone.
+      Enter your password to confirm.
+    </p>
+    <div class="field"><label>Password</label><input type="password" id="da-password" placeholder="Your password"></div>
+    <div id="da-error" style="display:none;color:var(--error);font-size:0.85rem;margin-bottom:0.75rem;"></div>
+    <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeDeleteAccount()">Cancel</button>
+      <button class="btn btn-danger" onclick="deleteAccount()">Delete account</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function exportData() {
+  // Plain navigation, not fetch: lets the browser handle the file
+  // download and the Content-Disposition header from the server.
+  window.location.href = '/api/export';
+}
+
+function openDeleteAccount() {
+  document.getElementById('da-password').value = '';
+  document.getElementById('da-error').style.display = 'none';
+  document.getElementById('del-account-modal').classList.add('open');
+}
+function closeDeleteAccount() { document.getElementById('del-account-modal').classList.remove('open'); }
+
+async function deleteAccount() {
+  const password = document.getElementById('da-password').value;
+  const errBox = document.getElementById('da-error');
+  errBox.style.display = 'none';
+  if (!password) { errBox.textContent = 'Enter your password to confirm.'; errBox.style.display = 'block'; return; }
+  const r = await fetch('/api/account', {
+    method: 'DELETE', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({password})
+  });
+  const result = await r.json();
+  if (result.ok) {
+    window.location.href = '/login';
+  } else {
+    errBox.textContent = result.error || 'Could not delete account.';
+    errBox.style.display = 'block';
+  }
+}
+
+document.getElementById('del-account-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteAccount(); });
+</script>
+{% endblock %}

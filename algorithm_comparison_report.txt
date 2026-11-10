@@ -1,0 +1,37 @@
+========================================================================
+ALGORITHM COMPARISON: Naive Bayes vs Linear SVM vs Logistic Regression
+Same seed data, same CountVectorizer(1,3) features, same train/test split
+========================================================================
+
+### Evaluation 1: 70/30 train/test split (hand-labelled held-out set) ###
+
+--- EXPENSE classifier (train=86, test=9) ---
+Algorithm                 Accuracy  Precision   Recall      F1
+--------------------------------------------------------------
+Naive Bayes (deployed)       0.889      0.833    0.889   0.852
+Linear SVM                   0.778      0.650    0.700   0.667
+Logistic Regression          0.778      0.700    0.700   0.700
+
+--- INCOME classifier (train=44, test=5) ---
+Algorithm                 Accuracy  Precision   Recall      F1
+--------------------------------------------------------------
+Naive Bayes (deployed)       0.800      0.700    0.800   0.733
+Linear SVM                   0.600      0.500    0.500   0.500
+Logistic Regression          0.800      0.700    0.800   0.733
+
+
+### Evaluation 2: held-out natural-language generalisation set (seed-only training) ###
+
+--- EXPENSE classifier (train=66, test=13) ---
+Algorithm                 Accuracy  Precision   Recall      F1
+--------------------------------------------------------------
+Naive Bayes (deployed)       0.846      0.818    0.864   0.833
+Linear SVM                   1.000      1.000    1.000   1.000
+Logistic Regression          1.000      1.000    1.000   1.000
+
+--- INCOME classifier (train=35, test=5) ---
+Algorithm                 Accuracy  Precision   Recall      F1
+--------------------------------------------------------------
+Naive Bayes (deployed)       0.800      0.667    0.667   0.667
+Linear SVM                   1.000      1.000    1.000   1.000
+Logistic Regression          0.800      0.667    0.667   0.667

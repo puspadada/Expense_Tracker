@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Expense Tracking App — Sign In</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink: #0d1117;
+    --paper: #f5f0e8;
+    --sage: #4a7c59;
+    --sage-light: #7fad8e;
+    --warm: #e8c547;
+    --muted: #8a8070;
+    --card: #fffdf8;
+    --border: #e0d8cc;
+    --error: #c0392b;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--paper); min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
+  
+  .panel-left {
+    background: var(--ink);
+    padding: 3rem;
+    display: flex; flex-direction: column; justify-content: space-between;
+    position: relative; overflow: hidden;
+  }
+  .panel-left::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 20% 50%, rgba(74,124,89,0.3) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 20%, rgba(232,197,71,0.15) 0%, transparent 50%);
+  }
+  .logo { position: relative; z-index: 1; }
+  .logo-mark { font-family: 'DM Serif Display', serif; font-size: 2rem; color: #fff; letter-spacing: -1px; }
+  .logo-mark span { color: var(--warm); }
+  .hero-text { position: relative; z-index: 1; }
+  .hero-text h1 { font-family: 'DM Serif Display', serif; font-size: 3rem; color: #fff; line-height: 1.1; margin-bottom: 1.5rem; }
+  .hero-text h1 em { font-style: italic; color: var(--warm); }
+  .hero-text p { color: rgba(255,255,255,0.6); font-size: 1rem; line-height: 1.7; max-width: 380px; }
+  .stat-row { position: relative; z-index: 1; display: flex; gap: 2rem; }
+  .stat { }
+  .stat-num { font-family: 'DM Serif Display', serif; font-size: 2rem; color: var(--warm); }
+  .stat-label { font-size: 0.8rem; color: rgba(255,255,255,0.5); margin-top: 0.2rem; }
+
+  .panel-right {
+    display: flex; align-items: center; justify-content: center; padding: 3rem 2rem;
+  }
+  .auth-card { width: 100%; max-width: 420px; }
+  .tabs { display: flex; gap: 0; margin-bottom: 2.5rem; border-bottom: 2px solid var(--border); }
+  .tab { font-family: 'DM Serif Display', serif; font-size: 1.3rem; padding: 0.75rem 0; margin-right: 2rem; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+  .tab.active { color: var(--ink); border-color: var(--sage); }
+  
+  .form-block { display: none; }
+  .form-block.active { display: block; }
+  
+  h2.form-title { font-family: 'DM Serif Display', serif; font-size: 1.6rem; color: var(--ink); margin-bottom: 0.4rem; }
+  .form-sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 2rem; }
+  
+  .field { margin-bottom: 1.2rem; }
+  .field label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--ink); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 0.4rem; }
+  .field input {
+    width: 100%; padding: 0.75rem 1rem;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 1rem; color: var(--ink);
+    background: var(--card); transition: border-color 0.2s;
+    outline: none;
+  }
+  .field input:focus { border-color: var(--sage); }
+  .field select {
+    width: 100%; padding: 0.75rem 1rem;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 1rem; color: var(--ink);
+    background: var(--card); transition: border-color 0.2s;
+    outline: none;
+  }
+  .field select:focus { border-color: var(--sage); }
+  .forgot-link { text-align: center; margin-top: 1rem; font-size: 0.875rem; }
+  .forgot-link a { color: var(--sage); text-decoration: none; font-weight: 500; }
+  .forgot-link a:hover { text-decoration: underline; }
+
+  .btn-primary {
+    width: 100%; padding: 0.9rem;
+    background: var(--sage); color: #fff;
+    border: none; border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 1rem; font-weight: 600;
+    cursor: pointer; transition: background 0.2s, transform 0.1s;
+    margin-top: 0.5rem;
+  }
+  .btn-primary:hover { background: #3d6b4a; }
+  .btn-primary:active { transform: scale(0.99); }
+  
+  .error-msg { background: #fdf0ef; border: 1px solid #f5c6c3; color: var(--error); border-radius: 6px; padding: 0.6rem 0.9rem; font-size: 0.875rem; margin-bottom: 1rem; display: none; }
+  .error-msg.show { display: block; }
+
+  @media (max-width: 768px) {
+    body { grid-template-columns: 1fr; }
+    .panel-left { display: none; }
+    .panel-right { padding: 2rem 1.5rem; }
+  }
+</style>
+</head>
+<body>
+<div class="panel-left">
+  <div class="logo"><div class="logo-mark">Expense <span>Tracking App</span></div></div>
+  <div class="hero-text">
+    <h1>Your money, <em>finally</em> under control</h1>
+    <p>A simple, free expense tracker built for students and young adults. No bank integration, no subscription — just clear visibility into your finances.</p>
+  </div>
+  <div class="stat-row">
+    <div class="stat"><div class="stat-num">Free</div><div class="stat-label">Always & forever</div></div>
+    <div class="stat"><div class="stat-num">100%</div><div class="stat-label">Private & local</div></div>
+    <div class="stat"><div class="stat-num">Simple</div><div class="stat-label">Built for students</div></div>
+  </div>
+</div>
+<div class="panel-right">
+  <div class="auth-card">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('login')">Sign In</div>
+      <div class="tab" onclick="switchTab('register')">Register</div>
+    </div>
+
+    <!-- Login -->
+    <div class="form-block active" id="form-login">
+      <h2 class="form-title">Welcome back</h2>
+      <p class="form-sub">Sign in to your account</p>
+      <div class="error-msg" id="login-err"></div>
+      <div class="field"><label>Email or Username</label><input type="text" id="l-login" placeholder="you@email.com"></div>
+      <div class="field"><label>Password</label><input type="password" id="l-password" placeholder="••••••••"></div>
+      <button class="btn-primary" onclick="doLogin()">Sign In</button>
+      <p class="forgot-link"><a href="/forgot-password">Forgot password?</a></p>
+    </div>
+
+    <!-- Register -->
+    <div class="form-block" id="form-register">
+      <h2 class="form-title">Create account</h2>
+      <p class="form-sub">Start tracking your finances today</p>
+      <div class="error-msg" id="reg-err"></div>
+      <div class="field"><label>Username</label><input type="text" id="r-username" placeholder="johndoe"></div>
+      <div class="field"><label>Email</label><input type="email" id="r-email" placeholder="you@email.com"></div>
+      <div class="field"><label>Password</label><input type="password" id="r-password" placeholder="At least 6 characters"></div>
+      <div class="field">
+        <label>Security Question</label>
+        <select id="r-security-question">
+          <option value="" disabled selected>Choose a question</option>
+          {% for q in security_questions %}
+          <option value="{{ q }}">{{ q }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field"><label>Answer</label><input type="text" id="r-security-answer" placeholder="Used only to reset your password"></div>
+      <button class="btn-primary" onclick="doRegister()">Create Account</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active', (i===0&&tab==='login')||(i===1&&tab==='register')));
+  document.querySelectorAll('.form-block').forEach(f=>f.classList.remove('active'));
+  document.getElementById('form-'+tab).classList.add('active');
+}
+
+async function doLogin() {
+  const login = document.getElementById('l-login').value.trim();
+  const password = document.getElementById('l-password').value;
+  const err = document.getElementById('login-err');
+  if (!login || !password) { showErr(err,'Please fill in all fields'); return; }
+  const res = await fetch('/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({login,password})});
+  const data = await res.json();
+  if (data.ok) { window.location='/dashboard'; }
+  else { showErr(err, data.error); }
+}
+
+async function doRegister() {
+  const username = document.getElementById('r-username').value.trim();
+  const email = document.getElementById('r-email').value.trim();
+  const password = document.getElementById('r-password').value;
+  const security_question = document.getElementById('r-security-question').value;
+  const security_answer = document.getElementById('r-security-answer').value.trim();
+  const err = document.getElementById('reg-err');
+  if (!username || !email || !password || !security_question || !security_answer) { showErr(err,'Please fill in all fields'); return; }
+  if (password.length < 6) { showErr(err,'Password must be at least 6 characters'); return; }
+  const res = await fetch('/register', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,email,password,security_question,security_answer})});
+  const data = await res.json();
+  if (data.ok) { window.location='/dashboard'; }
+  else { showErr(err, data.error); }
+}
+
+function showErr(el, msg) { el.textContent = msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 4000); }
+
+// Enter key
+document.addEventListener('keydown', e => { if(e.key==='Enter') { const active = document.querySelector('.form-block.active').id; if(active==='form-login') doLogin(); else doRegister(); }});
+</script>
+</body>
+</html>

@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+{% block title %}Transactions{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+  <div><h1>Transactions</h1><p>All your income and expense records</p></div>
+  <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+    <div class="month-nav">
+      <button onclick="changeMonth(-1)">‹</button>
+      <div class="month-label" id="month-label"></div>
+      <button onclick="changeMonth(1)">›</button>
+    </div>
+    <button class="btn btn-primary" onclick="openAdd()">+ Add Transaction</button>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom:1rem;padding:1rem 1.5rem;">
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;">
+    <div class="field" style="margin:0;flex:0 0 auto;">
+      <label>Type</label>
+      <select id="f-type" onchange="loadTransactions()" style="padding:0.5rem 0.75rem;border-radius:6px;border:1.5px solid var(--border);font-family:inherit;font-size:0.9rem;background:var(--card);color:var(--ink);outline:none;">
+        <option value="">All</option><option value="income">Income</option><option value="expense">Expense</option>
+      </select>
+    </div>
+    <div class="field" style="margin:0;flex:0 0 auto;">
+      <label>Category</label>
+      <select id="f-cat" onchange="loadTransactions()" style="padding:0.5rem 0.75rem;border-radius:6px;border:1.5px solid var(--border);font-family:inherit;font-size:0.9rem;background:var(--card);color:var(--ink);outline:none;">
+        <option value="">All categories</option>
+      </select>
+    </div>
+    <div class="field" style="margin:0;flex:1 1 200px;min-width:180px;">
+      <label>Search</label>
+      <input type="text" id="f-q" placeholder="Search description or category..." oninput="onSearchInput()" style="padding:0.5rem 0.75rem;border-radius:6px;border:1.5px solid var(--border);font-family:inherit;font-size:0.9rem;background:var(--card);color:var(--ink);outline:none;width:100%;">
+    </div>
+    <div style="margin-left:auto;align-self:flex-end;">
+      <span id="txn-count" style="font-size:0.85rem;color:var(--muted)"></span>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div id="txn-table-wrap"></div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="txn-modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Add Transaction</div>
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <div class="type-toggle">
+      <button class="type-btn active-income" id="m-income-btn" onclick="setMType('income')">+ Income</button>
+      <button class="type-btn" id="m-expense-btn" onclick="setMType('expense')">− Expense</button>
+    </div>
+    <input type="hidden" id="m-id">
+    <div class="form-row">
+      <div class="field"><label>Amount (kr.)</label><input type="number" id="m-amount" placeholder="0.00" min="0.01" step="0.01"></div>
+      <div class="field"><label>Date</label><input type="date" id="m-date"></div>
+    </div>
+    <div class="field">
+      <label style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Category</span>
+        <a href="#" onclick="addNewCategory(event)" style="text-transform:none;font-weight:500;font-size:0.78rem;color:var(--sage);">+ New category</a>
+      </label>
+      <!-- No category is pre-selected: the Naive Bayes classifier proposes one from the
+           description below, and the student explicitly accepts or overrides it, rather
+           than a dropdown sitting pre-filled and the AI suggestion being easy to ignore. -->
+      <div id="m-cat-hint" style="font-size:0.85rem;color:var(--muted);padding:0.5rem 0;">Type a description below to get an AI category suggestion, or <a href="#" onclick="showMCatSelect(event)">choose manually</a>.</div>
+      <div id="m-cat-suggest-box" style="display:none;padding:0.6rem 0.8rem;border:1.5px dashed var(--sage);border-radius:6px;background:rgba(125,160,125,0.08);">
+        <div style="font-size:0.85rem;">🤖 Naive Bayes suggests: <strong id="m-cat-suggest-name"></strong> <span id="m-cat-suggest-conf" style="color:var(--muted);font-weight:400;"></span></div>
+        <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+          <button type="button" class="btn btn-primary btn-sm" onclick="acceptMSuggestion()">✓ Accept</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="showMCatSelect(event)">Choose manually</button>
+        </div>
+      </div>
+      <div id="m-cat-confirmed-box" style="display:none;font-size:0.85rem;color:var(--ink);padding:0.5rem 0;">✓ <strong id="m-cat-confirmed-name"></strong> <span style="color:var(--muted);font-weight:400;">(AI-suggested, accepted)</span> · <a href="#" onclick="showMCatSelect(event)">change</a></div>
+      <select id="m-cat" style="display:none;"></select>
+    </div>
+    <div class="field"><label>Description</label><input type="text" id="m-desc" placeholder="Optional note" oninput="onDescInput()"></div>
+    <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:0.5rem;">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTransaction()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm delete -->
+<div class="modal-overlay" id="del-modal">
+  <div class="modal" style="max-width:360px;text-align:center;">
+    <div class="modal-title">Delete Transaction?</div>
+    <p style="color:var(--muted);margin-bottom:1.5rem;font-size:0.9rem;">This action cannot be undone.</p>
+    <div style="display:flex;gap:0.75rem;justify-content:center;">
+      <button class="btn btn-secondary" onclick="document.getElementById('del-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add category -->
+<div class="modal-overlay" id="cat-modal">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-title" id="cat-modal-title">Add Category</div>
+    <button class="modal-close" onclick="closeCatModal()">×</button>
+    <div class="field">
+      <label>Category name</label>
+      <input type="text" id="cat-name" placeholder="e.g. Pet Supplies" maxlength="40" onkeydown="if(event.key==='Enter') saveNewCategory()">
+    </div>
+    <div id="cat-error" style="display:none;color:var(--error);font-size:0.85rem;margin-bottom:0.5rem;"></div>
+    <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:0.5rem;">
+      <button class="btn btn-secondary" onclick="closeCatModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNewCategory()">Add</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentMonth = new Date().toISOString().slice(0,7);
+let mType = 'income';
+let cats = {};
+let deleteId = null;
+
+function initMonthNav() { document.getElementById('month-label').textContent = monthName(currentMonth); }
+function changeMonth(d) {
+  const [y,m] = currentMonth.split('-').map(Number);
+  let newMonth = m + d;
+  let newYear = y;
+  if (newMonth > 12) { newMonth = 1; newYear++; }
+  if (newMonth < 1)  { newMonth = 12; newYear--; }
+  currentMonth = newYear + '-' + String(newMonth).padStart(2,'0');
+  initMonthNav(); loadTransactions();
+}
+
+async function loadCats() {
+  const r = await fetch('/api/categories'); cats = await r.json();
+  // fill category filter
+  const allCats = [...cats.income, ...cats.expense];
+  const sel = document.getElementById('f-cat');
+  allCats.forEach(c => { const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
+}
+
+function setMCatOptions(type) {
+  const sel = document.getElementById('m-cat'); sel.innerHTML='';
+  const placeholder = document.createElement('option');
+  placeholder.value=''; placeholder.textContent='— Select category —'; placeholder.disabled=true; placeholder.selected=true;
+  sel.appendChild(placeholder);
+  cats[type]?.forEach(c => { const o=document.createElement('option'); o.value=c; o.textContent=catIcon(c)+' '+c; sel.appendChild(o); });
+}
+
+// ─── Category field state machine ──────────────────────────────────────
+// Three mutually-exclusive views of the same field: the hint (nothing
+// suggested yet), the suggestion box (AI proposed a category, awaiting
+// accept/reject), and the confirmed box (suggestion accepted). "Choose
+// manually" in any of them reveals the plain dropdown instead. The hidden
+// #m-cat select always holds the actual value saveTransaction() reads,
+// whichever view is visible.
+function resetMCatUI() {
+  document.getElementById('m-cat-hint').style.display = 'block';
+  document.getElementById('m-cat-suggest-box').style.display = 'none';
+  document.getElementById('m-cat-confirmed-box').style.display = 'none';
+  document.getElementById('m-cat').style.display = 'none';
+  document.getElementById('m-cat').value = '';
+}
+function showMCatSelect(e) {
+  if (e) e.preventDefault();
+  document.getElementById('m-cat-hint').style.display = 'none';
+  document.getElementById('m-cat-suggest-box').style.display = 'none';
+  document.getElementById('m-cat-confirmed-box').style.display = 'none';
+  document.getElementById('m-cat').style.display = 'block';
+}
+function acceptMSuggestion() {
+  document.getElementById('m-cat').value = lastSuggestion;
+  document.getElementById('m-cat-hint').style.display = 'none';
+  document.getElementById('m-cat-suggest-box').style.display = 'none';
+  document.getElementById('m-cat').style.display = 'none';
+  document.getElementById('m-cat-confirmed-name').textContent = catIcon(lastSuggestion)+' '+lastSuggestion;
+  document.getElementById('m-cat-confirmed-box').style.display = 'block';
+}
+
+function setMType(t, suppressFetch) {
+  mType = t;
+  document.getElementById('m-income-btn').className = 'type-btn' + (t==='income'?' active-income':'');
+  document.getElementById('m-expense-btn').className = 'type-btn' + (t==='expense'?' active-expense':'');
+  setMCatOptions(t);
+  resetMCatUI();
+  if (!suppressFetch && document.getElementById('m-desc').value.trim().length >= 2) fetchSuggestion();
+}
+
+let searchTimer = null;
+function onSearchInput() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(loadTransactions, 300);
+}
+
+async function loadTransactions() {
+  const type = document.getElementById('f-type').value;
+  const cat  = document.getElementById('f-cat').value;
+  const q    = document.getElementById('f-q').value.trim();
+  let url = '/api/transactions?month='+currentMonth;
+  if (type) url += '&type='+type;
+  if (cat)  url += '&category='+encodeURIComponent(cat);
+  if (q)    url += '&q='+encodeURIComponent(q);
+  const wrap = document.getElementById('txn-table-wrap');
+  let rows;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('Server returned ' + r.status);
+    rows = await r.json();
+  } catch (e) {
+    document.getElementById('txn-count').textContent = '';
+    wrap.innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><p>Could not load transactions. Please try refreshing the page.</p></div>';
+    return;
+  }
+  document.getElementById('txn-count').textContent = rows.length + ' transaction' + (rows.length!==1?'s':'');
+  if (!rows.length) { wrap.innerHTML='<div class="empty-state"><div class="icon">📋</div><p>No transactions found for this period</p></div>'; return; }
+  wrap.innerHTML = `<table class="tbl">
+    <thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Description</th><th style="text-align:right">Amount</th><th></th></tr></thead>
+    <tbody>
+    ${rows.map(t=>`<tr>
+      <td style="color:var(--muted);white-space:nowrap">${fmtDate(t.date)}</td>
+      <td><span class="badge badge-${t.type}">${t.type}</span></td>
+      <td>${catIcon(t.category)} ${t.category}</td>
+      <td style="color:var(--muted);font-size:0.88rem">${t.description||'—'}</td>
+      <td style="text-align:right;font-weight:600;color:${t.type==='income'?'var(--income)':'var(--expense)'}">${t.type==='income'?'+':'-'}${fmt(t.amount)}</td>
+      <td><div class="actions">
+        <button class="btn btn-secondary btn-sm" onclick="openEdit(${JSON.stringify(t).replace(/"/g,'&quot;')})">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="askDelete(${t.id})">Del</button>
+      </div></td>
+    </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function openAdd() {
+  document.getElementById('modal-title').textContent = 'Add Transaction';
+  document.getElementById('m-id').value = '';
+  document.getElementById('m-amount').value = '';
+  document.getElementById('m-desc').value = '';
+  document.getElementById('m-date').value = new Date().toISOString().split('T')[0];
+  setMType('income');
+  document.getElementById('txn-modal').classList.add('open');
+}
+
+function openEdit(t) {
+  document.getElementById('modal-title').textContent = 'Edit Transaction';
+  document.getElementById('m-id').value = t.id;
+  document.getElementById('m-amount').value = t.amount;
+  document.getElementById('m-desc').value = t.description||'';
+  document.getElementById('m-date').value = t.date;
+  // Suppress the auto-suggestion fetch here: this transaction already has a
+  // category, so editing goes straight to the manual dropdown pre-filled
+  // with it, rather than re-running the classifier on the existing description.
+  setMType(t.type, true);
+  showMCatSelect();
+  document.getElementById('m-cat').value = t.category;
+  document.getElementById('txn-modal').classList.add('open');
+}
+
+function closeModal() { document.getElementById('txn-modal').classList.remove('open'); }
+
+// ─── Custom categories ──────────────────────────────────────────────────
+// Lets the user add their own category (not just pick from the fixed
+// list) — Monefy and To (2026) both identify this as something the
+// beginner-friendly apps offer and this project's own list did not.
+function addNewCategory(e) {
+  e.preventDefault();
+  document.getElementById('cat-modal-title').textContent = `Add ${mType === 'income' ? 'Income' : 'Expense'} Category`;
+  document.getElementById('cat-name').value = '';
+  document.getElementById('cat-error').style.display = 'none';
+  document.getElementById('cat-modal').classList.add('open');
+  document.getElementById('cat-name').focus();
+}
+function closeCatModal() { document.getElementById('cat-modal').classList.remove('open'); }
+
+async function saveNewCategory() {
+  const name = document.getElementById('cat-name').value.trim();
+  const errBox = document.getElementById('cat-error');
+  errBox.style.display = 'none';
+  if (!name) { errBox.textContent = 'Enter a category name.'; errBox.style.display = 'block'; return; }
+  const r = await fetch('/api/categories', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({type: mType, name})
+  });
+  const result = await r.json();
+  if (!result.ok) { errBox.textContent = result.error || 'Could not add category'; errBox.style.display = 'block'; return; }
+  cats[mType] = [...(cats[mType] || []), result.name];
+  setMCatOptions(mType);
+  showMCatSelect();
+  document.getElementById('m-cat').value = result.name;
+  const filterSel = document.getElementById('f-cat');
+  const o = document.createElement('option'); o.value = result.name; o.textContent = result.name;
+  filterSel.appendChild(o);
+  closeCatModal();
+  toast('Category added!');
+}
+
+// ─── AI category suggestion ────────────────────────────────────────────
+// Debounced call to /api/suggest-category as the user types a description.
+// Suggests a category rather than forcing it — the user can still pick a
+// different one manually.
+let descTimer = null;
+let lastSuggestion = null;
+function onDescInput() {
+  clearTimeout(descTimer);
+  descTimer = setTimeout(fetchSuggestion, 400);
+}
+async function fetchSuggestion() {
+  const description = document.getElementById('m-desc').value.trim();
+  if (description.length < 2) { resetMCatUI(); return; }
+  try {
+    const r = await fetch('/api/suggest-category', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({type: mType, description})
+    });
+    const result = await r.json();
+    if (result && result.category) {
+      lastSuggestion = result.category;
+      document.getElementById('m-cat-hint').style.display = 'none';
+      document.getElementById('m-cat-confirmed-box').style.display = 'none';
+      document.getElementById('m-cat').style.display = 'none';
+      document.getElementById('m-cat-suggest-name').textContent = catIcon(result.category)+' '+result.category;
+      document.getElementById('m-cat-suggest-conf').textContent = '('+Math.round(result.confidence*100)+'% confident)';
+      document.getElementById('m-cat-suggest-box').style.display = 'block';
+    } else {
+      resetMCatUI();
+    }
+  } catch (e) { resetMCatUI(); }
+}
+
+async function saveTransaction() {
+  const id = document.getElementById('m-id').value;
+  const amount = parseFloat(document.getElementById('m-amount').value);
+  const date = document.getElementById('m-date').value;
+  const category = document.getElementById('m-cat').value;
+  const description = document.getElementById('m-desc').value;
+  if (!amount || amount<=0) { toast('Enter a valid amount','error'); return; }
+  if (!date) { toast('Pick a date','error'); return; }
+  if (!category) { toast('Accept the suggested category, or choose one manually','error'); return; }
+  const payload = {type:mType, amount, category, date, description};
+  if (id) { payload.id = parseInt(id); await fetch('/api/transactions',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); toast('Updated!'); }
+  else { await fetch('/api/transactions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); toast('Added!'); }
+  closeModal(); loadTransactions();
+}
+
+function askDelete(id) { deleteId = id; document.getElementById('del-modal').classList.add('open'); }
+async function confirmDelete() {
+  await fetch('/api/transactions',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:deleteId})});
+  document.getElementById('del-modal').classList.remove('open');
+  toast('Deleted'); loadTransactions();
+}
+
+// close on overlay click
+document.getElementById('txn-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
+document.getElementById('cat-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeCatModal(); });
+
+initMonthNav(); loadCats().then(()=>loadTransactions());
+</script>
+{% endblock %}

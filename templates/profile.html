@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Profile</h1>
+  <p>Your account information</p>
+</div>
+
+<div class="card" style="margin-bottom:1.5rem;max-width:480px;">
+  <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
+    <div class="avatar" style="width:56px;height:56px;font-size:1.4rem;">{{ username[0].upper() }}</div>
+    <div>
+      <div style="font-family:'DM Serif Display',serif;font-size:1.3rem;">{{ user['username'] }}</div>
+      <div style="color:var(--muted);font-size:0.85rem;">Member since {{ user['created_at'][:10] }}</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Email</label>
+    <div style="padding:0.65rem 0;font-size:0.95rem;">{{ user['email'] }}</div>
+  </div>
+  <div class="field">
+    <label>Currency</label>
+    <div style="padding:0.65rem 0;font-size:0.95rem;">{{ user['currency'] }}</div>
+  </div>
+  <div class="field" style="margin-bottom:0;">
+    <label>Security Question</label>
+    <div style="padding:0.65rem 0;font-size:0.95rem;">{{ user['security_question'] or 'Not set' }}</div>
+  </div>
+</div>
+
+<p style="color:var(--muted);font-size:0.85rem;max-width:480px;">
+  Need to export your data or delete your account? Head to
+  <a href="/account" style="color:var(--sage);font-weight:500;">Account</a>.
+</p>
+{% endblock %}
